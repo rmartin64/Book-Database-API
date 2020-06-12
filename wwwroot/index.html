@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>Book Database</title>
+    <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css"/>
+    <link type="text/css" rel="stylesheet" href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <link rel="stylesheet" href="css/site.css" />
+</head>
+<body class="bg-light">
+    <div id="app">
+        <nav class="navbar navbar-dark bg-dark fixed-top">
+            <div class="navbar-brand">Book Database</div>
+            <button class="btn text-light" id="show-modal" @click="showModal=true">Add Book</button>
+        </nav>
+
+        <div class="row ml-5">
+            <div v-for="book in books" :key="book.id" class="col-md-3 mx-5 mb-5 border border-dark rounded bg-dark text-light">
+                <book-item
+                    v-bind:book="book"
+                    v-on:del="deleteItems"
+                ></book-item>
+            </div>
+        </div>
+
+        <add-form v-on:add="addItems" v-if="showModal" @close="showModal=false">
+        </add-form>
+    </div>
+
+
+    <script>
+        Vue.component('add-form', {
+            data: function() {
+                return {
+                    name: '',
+                    author: '',
+                    year: '',
+                    language: '',
+                    pages: '',
+                    synopsis: ''
+                }
+            },
+            methods: {
+                addItem: function() {
+                    const item = {
+                        name: this.name.trim(),
+                        author: this.author.trim(),
+                        year: this.year.trim(),
+                        language: this.language.trim(),
+                        pages: this.pages.trim(),
+                        synopsis: this.synopsis.trim()
+                    };
+                    let temp = [];
+                    fetch('api/BookItems', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(item)
+                    })
+                    .then(response => response.json())
+                    .then(data => {temp.push(data);} )
+                    .then(this.$emit('add', temp) )
+                    .then(() => {
+                        this.name = '';
+                        this.author = '';
+                        this.value = '';
+                        this.year = '';
+                        this.language = '';
+                        this.pages = '';
+                        this.synopsis = '';
+                    })
+                    .then(this.$emit('close'))
+                    .catch(error => console.error('Unable to add item.', error));
+                },
+                cancelItem: function() {
+                    this.name = '';
+                    this.author = '';
+                    this.value = '';
+                    this.year = '';
+                    this.language = '';
+                    this.pages = '';
+                    this.synopsis = '';
+                    this.$emit('close')
+                }
+            },
+            template: `
+            <div class="modal-mask">
+                <div class="modal-wrapper">
+                    <div class="modal-container">
+                        <form @submit.prevent="addItem">
+                            <input type="text" v-model="name" placeholder="New book">
+                            <input type="text" v-model="author" placeholder="Author">
+                            <input type="text" v-model="year" placeholder="Year">
+                            <input type="text" v-model="language" placeholder="Language">
+                            <input type="text" v-model="pages" placeholder="Pages">
+                            <input type="text" v-model="synopsis" placeholder="Synopsis">
+                            <input class="btn pt-3" type="submit" value="Add">
+                            <button class="btn pl-5 pt-3" @click="cancelItem">Cancel</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            `
+        })
+        Vue.component('book-item', {
+            data: function() {
+                return {
+                    showModalEdit: false
+                }
+            },
+            props: ['book'],
+            methods: {
+                updateItem: function() {
+                    const item = {
+                        id: parseInt(this.book.id, 10),
+                        name: this.book.name.trim(),
+                        author: this.book.author.trim(),
+                        year: this.book.year.trim(),
+                        language: this.book.language.trim(),
+                        pages: this.book.pages.trim(),
+                        synopsis: this.book.synopsis.trim()
+                    };
+                    fetch(`${'api/BookItems'}/${this.book.id}`, {
+                        method: 'PUT',
+                        headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(item)
+                    })
+                    .then(this.showModalEdit=false)
+                    .catch(error => console.error('Unable to update item.', error));
+                },
+                deleteItem: function() {
+                    fetch(`${'api/BookItems'}/${this.book.id}`, {
+                        method: 'DELETE'
+                    })
+                    .then(this.$emit('del', this.book.id))
+                    .then(this.showModalEdit=false)
+                    .catch(error => console.error('Unable to update item.', error));
+                }
+            },
+            template: `
+            <div class="container">
+                <h3 class="text-wrap text-break text-center">{{ book.name }}</h3>
+                <h4 class="text-wrap text-break text-center">by {{ book.author }}</h4>
+                <p class="text-wrap text-break text-center">{{ book.year }} &#183; {{ book.language }} &#183; {{ book.pages }} pages </p>
+                <p class="text-wrap text-break">{{ book.synopsis }}</p>
+                <button class="btn text-light text-center" id="show-modal-edit" @click="showModalEdit=true">Edit Book</button>
+                <div v-if="showModalEdit" class="modal-mask">
+                    <div class="modal-wrapper">
+                        <div class="modal-container">
+                            <form @submit.prevent="updateItem">
+                                <input type="text" v-model="book.name" placeholder="Name">
+                                <input type="text" v-model="book.author" placeholder="Author">
+                                <input type="text" v-model="book.year" placeholder="Year">
+                                <input type="text" v-model="book.language" placeholder="Language">
+                                <input type="text" v-model="book.pages" placeholder="Pages">
+                                <input type="text" v-model="book.synopsis" placeholder="Synopsis">
+                                <input class="btn pt-3" type="submit" value="Save">
+                                <button class="btn pl-5 pt-3" id="delete" @click="deleteItem">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `
+        })
+        new Vue({
+        el: '#app',
+        data: { 
+            books: [],
+            showModal: false,
+        },
+        methods: {
+            getItems: function() {
+                    setTimeout(() => {
+                        fetch('api/BookItems')
+                        .then(response => response.json())
+                        .then(data => {
+                            this.books = data;
+                    })
+                    }, 250);
+            },
+            deleteItems: function(id) {
+                for (let i = 0; i < this.books.length; i++) {
+                    if (this.books[i].id === id) {
+                        this.books.splice(i, 1);
+                        break;
+                    }
+                }
+            },
+            addItems: function(data) {
+                setTimeout(() => {this.books.push(data[0])}, 250);
+            }
+        },
+        created() {
+            this.getItems();
+        }
+        })
+    </script>
+
+<script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.min.js"></script>
+</body>
+</html>
